@@ -1,4 +1,4 @@
-# LangChain + CodeVF
+# LangChain Human In The Loop (CodeVF)
 
 Minimal LangChain tool integration for routing review, debugging, and verification requests to CodeVF using the official Python SDK.
 
@@ -7,7 +7,7 @@ Minimal LangChain tool integration for routing review, debugging, and verificati
 1. Install dependencies
 
 ```bash
-pip install codevf-sdk langchain-core pydantic
+pip install langchain-human-in-the-loop codevf-sdk langchain-core pydantic
 ```
 
 2. Set your API key
@@ -19,26 +19,24 @@ export CODEVF_API_KEY="cvf_live_..."
 3. Run a direct review (no agent needed)
 
 ```python
-from langchain_codevf import CodeVFReviewTool
+from langchain_human_in_the_loop import HumanInTheLoop
 
-codevf_tool = CodeVFReviewTool(
+hitl = HumanInTheLoop(
+    api_key="CODEVF_API_KEY",
     project_id=123,
     max_credits=50,
     mode="fast",
     timeout=300,
 )
-
-result = codevf_tool.invoke(
-    {
-        "prompt": "Review this function for security issues and suggest fixes.",
-        "attachments": [
-            {
-                "file_name": "app.py",
-                "mime_type": "text/x-python",
-                "content": "def login(user, pwd): ...",
-            }
-        ],
-    }
+result = hitl.invoke(
+    "Review this function for security issues and suggest fixes.",
+    attachments=[
+        {
+            "file_name": "app.py",
+            "mime_type": "text/x-python",
+            "content": "def login(user, pwd): ...",
+        }
+    ],
 )
 
 print(result)
@@ -59,26 +57,24 @@ Each attachment accepts either `content` (plain text) or `base64` (for binary fi
 ### Example: Multiple Files
 
 ```python
-from langchain_codevf import CodeVFReviewTool
+from langchain_human_in_the_loop import HumanInTheLoop
 
-codevf_tool = CodeVFReviewTool(project_id=123, max_credits=50)
+hitl = HumanInTheLoop(project_id=123, max_credits=50)
 
-result = codevf_tool.invoke(
-    {
-        "prompt": "Find concurrency bugs and propose fixes.",
-        "attachments": [
-            {
-                "file_name": "worker.py",
-                "mime_type": "text/x-python",
-                "content": "def run(queue): ...",
-            },
-            {
-                "file_name": "README.md",
-                "mime_type": "text/markdown",
-                "content": "# Worker\n\nHow it is supposed to work...",
-            },
-        ],
-    }
+result = hitl.invoke(
+    "Find concurrency bugs and propose fixes.",
+    attachments=[
+        {
+            "file_name": "worker.py",
+            "mime_type": "text/x-python",
+            "content": "def run(queue): ...",
+        },
+        {
+            "file_name": "README.md",
+            "mime_type": "text/markdown",
+            "content": "# Worker\n\nHow it is supposed to work...",
+        },
+    ],
 )
 
 print(result)
@@ -88,62 +84,42 @@ print(result)
 
 ```python
 import base64
-from langchain_codevf import CodeVFReviewTool
+from langchain_human_in_the_loop import HumanInTheLoop
 
 with open("diagram.png", "rb") as f:
     encoded = base64.b64encode(f.read()).decode("ascii")
 
-codevf_tool = CodeVFReviewTool(project_id=123, max_credits=50)
-result = codevf_tool.invoke(
-    {
-        "prompt": "Review the architecture diagram for missing components.",
-        "attachments": [
-            {
-                "file_name": "diagram.png",
-                "mime_type": "image/png",
-                "base64": encoded,
-            }
-        ],
-    }
+hitl = HumanInTheLoop(project_id=123, max_credits=50)
+result = hitl.invoke(
+    "Review the architecture diagram for missing components.",
+    attachments=[
+        {
+            "file_name": "diagram.png",
+            "mime_type": "image/png",
+            "base64": encoded,
+        }
+    ],
 )
 
 print(result)
 ```
 
-## Using With A LangChain Agent
+### LangChain Tool Helper
+
+You can expose CodeVF as a LangChain structured tool via:
 
 ```python
-from dotenv import load_dotenv
-from langchain.agents import create_agent
-from langchain_openai import ChatOpenAI
-from langchain_codevf import CodeVFReviewTool
+from langchain_human_in_the_loop import HumanInTheLoop, HumanInTheLoopInput
 
-load_dotenv()
+hitl = HumanInTheLoop(project_id=123)
+codevf_tool = hitl.as_langchain_tool()
 
-codevf_tool = CodeVFReviewTool(project_id=123, max_credits=50)
-llm = ChatOpenAI(model="gpt-4o-mini")
-
-agent = create_agent(
-    model=llm,
-    tools=[codevf_tool],
-    system_prompt="You are a software engineering assistant.",
-)
-
-result = agent.invoke(
-    {
-        "messages": [
-            {"role": "user", "content": "Ask CodeVF to debug this error stack trace."}
-        ]
-    }
-)
-
-messages = result.get("messages", [])
-last = messages[-1] if messages else None
-print(getattr(last, "content", None) or (last or {}).get("content", ""))
+# Optional: use the tool input schema for structured calls
+schema = HumanInTheLoopInput.schema()
 ```
 
-See `examples/codevf_tool_agent.py` for a complete runnable snippet.  
-If you want to test CodeVF without an LLM, use `examples/codevf_direct.py`.
+See `examples/human_in_the_loop.py` for a complete runnable snippet.  
+If you want to test CodeVF with LangChain, use `examples/codevf_tool_agent.py`.
 
 ## Testing
 

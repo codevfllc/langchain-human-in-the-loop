@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "langchain-codevf"
-version = "0.1.0"
-description = "LangChain Tool integration for CodeVF"
+name = "langchain-human-in-the-loop"
+version = "0.2.0"
+description = "Human-in-the-loop LangChain integration for CodeVF"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

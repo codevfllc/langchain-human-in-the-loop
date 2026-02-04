@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from codevf.models.task import TaskResponse
-from langchain_codevf.tool import AttachmentInput, CodeVFReviewTool
+from langchain_human_in_the_loop import AttachmentInput, HumanInTheLoop
 
 
 class DummyClient:
@@ -17,7 +17,7 @@ def _task(payload: dict) -> TaskResponse:
     return TaskResponse.from_payload(payload)
 
 
-def test_tool_returns_message_on_completion(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_hitl_returns_message_on_completion(monkeypatch: pytest.MonkeyPatch) -> None:
     client = DummyClient()
     client.tasks.create.return_value = _task({
         "id": "task_123",
@@ -44,15 +44,15 @@ def test_tool_returns_message_on_completion(monkeypatch: pytest.MonkeyPatch) -> 
         }),
     ]
 
-    monkeypatch.setattr("langchain_codevf.tool.time.sleep", lambda _: None)
+    monkeypatch.setattr("langchain_human_in_the_loop.tool.time.sleep", lambda _: None)
 
-    tool = CodeVFReviewTool(project_id=1, client=client)
-    result = tool.invoke({"prompt": "Review this function for errors."})
+    hitl = HumanInTheLoop(project_id=1, client=client)
+    result = hitl.invoke("Review this function for errors.")
 
-    assert result == "All good"
+    assert result == {"status": "approved", "output": "All good"}
 
 
-def test_tool_maps_attachments() -> None:
+def test_hitl_maps_attachments() -> None:
     client = DummyClient()
     client.tasks.create.return_value = _task({
         "id": "task_456",
@@ -64,17 +64,17 @@ def test_tool_maps_attachments() -> None:
     })
     client.tasks.retrieve.return_value = client.tasks.create.return_value
 
-    tool = CodeVFReviewTool(project_id=1, client=client)
-    tool.invoke({
-        "prompt": "Review this file.",
-        "attachments": [
+    hitl = HumanInTheLoop(project_id=1, client=client)
+    hitl.invoke(
+        "Review this file.",
+        attachments=[
             AttachmentInput(
                 file_name="app.py",
                 mime_type="text/x-python",
                 content="print('hi')",
             )
         ],
-    })
+    )
 
     client.tasks.create.assert_called_once()
     _, kwargs = client.tasks.create.call_args
@@ -83,7 +83,7 @@ def test_tool_maps_attachments() -> None:
     ]
 
 
-def test_tool_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_hitl_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     client = DummyClient()
     client.tasks.create.return_value = _task({
         "id": "task_999",
@@ -95,20 +95,20 @@ def test_tool_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     client.tasks.retrieve.return_value = client.tasks.create.return_value
 
     times = iter([0.0, 10.0, 20.0, 30.0])
-    monkeypatch.setattr("langchain_codevf.tool.time.monotonic", lambda: next(times))
-    monkeypatch.setattr("langchain_codevf.tool.time.sleep", lambda _: None)
+    monkeypatch.setattr("langchain_human_in_the_loop.tool.time.monotonic", lambda: next(times))
+    monkeypatch.setattr("langchain_human_in_the_loop.tool.time.sleep", lambda _: None)
 
-    tool = CodeVFReviewTool(project_id=1, client=client, timeout=5)
+    hitl = HumanInTheLoop(project_id=1, client=client, timeout=5)
     with pytest.raises(TimeoutError):
-        tool.invoke({"prompt": "Review this function for errors."})
+        hitl.invoke("Review this function for errors.")
 
 
 @pytest.mark.asyncio
-async def test_tool_async_execution(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_hitl_async_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     client = DummyClient()
-    tool = CodeVFReviewTool(project_id=1, client=client)
+    hitl = HumanInTheLoop(project_id=1, client=client)
 
-    monkeypatch.setattr(tool, "_run", lambda prompt, attachments=None: "ok")
+    monkeypatch.setattr(hitl, "_run", lambda prompt, attachments=None: {"status": "approved", "output": "ok"})
 
-    result = await tool.ainvoke({"prompt": "Test async."})
-    assert result == "ok"
+    result = await hitl.ainvoke("Test async.")
+    assert result == {"status": "approved", "output": "ok"}

@@ -2,8 +2,8 @@ import os
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
-from langchain_codevf import CodeVFReviewTool
 from langchain_openai import ChatOpenAI
+from langchain_human_in_the_loop import HumanInTheLoop
 
 
 def _extract_text(result: dict) -> str:
@@ -21,7 +21,8 @@ def main() -> None:
     if "CODEVF_API_KEY" not in os.environ:
         raise RuntimeError("Set CODEVF_API_KEY before running this example.")
 
-    codevf_tool = CodeVFReviewTool(project_id=123, max_credits=50)
+    hitl = HumanInTheLoop(project_id=123, max_credits=50)
+    codevf_tool = hitl.as_langchain_tool()
     llm = ChatOpenAI(model="gpt-4o-mini")
 
     agent = create_agent(
@@ -34,7 +35,12 @@ def main() -> None:
         "messages": [
             {
                 "role": "user",
-                "content": "Ask CodeVF to review my authentication flow for security bugs.",
+                "content": (
+                    "Use the codevf_review tool with prompt "
+                    "\"Review my authentication flow for security bugs.\" and attach "
+                    "a file auth.py with mime_type text/x-python and content "
+                    "\"def login(user, pwd): return user == 'admin' and pwd == 'admin'\"."
+                ),
             }
         ]
     })
