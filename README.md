@@ -4,11 +4,13 @@ Minimal LangChain tool integration for routing review, debugging, and verificati
 
 ## Quick Start
 
-1. Install dependencies
+1. Install
 
 ```bash
-pip install langchain-human-in-the-loop codevf-sdk langchain-core pydantic
+pip install langchain-human-in-the-loop
 ```
+
+Dependencies (`codevf-sdk`, `langchain-core`, `pydantic`) are installed automatically.
 
 2. Set your API key
 
@@ -40,6 +42,12 @@ result = hitl.invoke(
 )
 
 print(result)
+```
+
+Install page:
+
+```text
+https://pypi.org/project/langchain-human-in-the-loop/
 ```
 
 ## Install From Source
