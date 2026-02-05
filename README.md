@@ -129,6 +129,12 @@ schema = HumanInTheLoopInput.schema()
 See `examples/human_in_the_loop.py` for a complete runnable snippet.  
 If you want to test CodeVF with LangChain, use `examples/codevf_tool_agent.py`.
 
+### Research / University Samples
+
+- `examples/reproducibility_audit.py` reviews an ML experiment for reproducibility gaps.
+- `examples/data_privacy_review.py` checks a student-data pipeline for privacy and policy risks.
+- `examples/paper_review.py` reviews methods/results for missing baselines and reporting issues.
+
 ## Testing
 
 ```bash
