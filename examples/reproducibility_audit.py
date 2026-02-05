@@ -65,7 +65,7 @@ def main() -> None:
         },
         {
             "file_name": "README.md",
-            "mime_type": "text/markdown",
+            "mime_type": "text/plain",
             "content": (
                 "# Experiment\n\n"
                 "Run training with `python train.py`.\n\n"

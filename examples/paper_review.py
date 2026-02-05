@@ -28,7 +28,7 @@ def main() -> None:
     attachments = [
         {
             "file_name": "methods.md",
-            "mime_type": "text/markdown",
+            "mime_type": "text/plain",
             "content": (
                 "# Methods\n\n"
                 "We train a transformer on 5M sequences from a public corpus. "
@@ -47,7 +47,7 @@ def main() -> None:
         },
         {
             "file_name": "related_work.md",
-            "mime_type": "text/markdown",
+            "mime_type": "text/plain",
             "content": (
                 "# Related Work\n\n"
                 "Prior work reports comparable accuracy on similar datasets.\n"
