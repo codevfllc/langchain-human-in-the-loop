@@ -79,7 +79,7 @@ result = hitl.invoke(
         },
         {
             "file_name": "README.md",
-            "mime_type": "text/markdown",
+            "mime_type": "text/plain",
             "content": "# Worker\n\nHow it is supposed to work...",
         },
     ],
@@ -134,6 +134,9 @@ If you want to test CodeVF with LangChain, use `examples/codevf_tool_agent.py`.
 - `examples/reproducibility_audit.py` reviews an ML experiment for reproducibility gaps.
 - `examples/data_privacy_review.py` checks a student-data pipeline for privacy and policy risks.
 - `examples/paper_review.py` reviews methods/results for missing baselines and reporting issues.
+- `examples/irb_protocol_review.py` reviews a study protocol, consent, and survey for IRB gaps.
+- `examples/bias_fairness_audit.py` audits an admissions model for sampling bias and fairness risk.
+- `examples/replication_package_review.py` checks a replication package for release readiness.
 
 ## Testing
 

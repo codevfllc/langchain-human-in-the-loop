@@ -54,7 +54,7 @@ def main() -> None:
         },
         {
             "file_name": "data_policy.md",
-            "mime_type": "text/markdown",
+            "mime_type": "text/plain",
             "content": (
                 "# Data Policy Draft\n\n"
                 "We will store raw student data on a shared drive for the project.\n"
