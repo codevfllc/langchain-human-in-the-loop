@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional, Protocol, runtime_checkable, Union
 
@@ -9,6 +10,12 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from codevf import CodeVFClient
 from codevf.models.task import ServiceMode, TaskResponse
+
+DEFAULT_TIMEOUT_PER_CREDIT_SECONDS = 2
+DEFAULT_TIMEOUT_BUFFER_SECONDS = 300
+INFINITE_TIMEOUT_SENTINEL = -1
+
+logger = logging.getLogger(__name__)
 
 
 class AttachmentInput(BaseModel):
@@ -68,7 +75,7 @@ class HumanInTheLoop:
         max_credits: int = 50,
         mode: ServiceMode | str = ServiceMode.STANDARD,
         poll_interval: float = 2.0,
-        timeout: float = 300.0,
+        timeout: Optional[float] = None,
         tag_id: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
         client: Optional[CodeVFClient] = None,
@@ -82,7 +89,7 @@ class HumanInTheLoop:
         self.max_credits = max_credits
         self.mode = mode
         self.poll_interval = poll_interval
-        self.timeout = timeout
+        self.timeout = _resolve_timeout_seconds(timeout=timeout, max_credits=max_credits)
         self.tag_id = tag_id
         self.metadata = metadata
 
@@ -109,6 +116,7 @@ class HumanInTheLoop:
         attachments: Optional[List[Union[AttachmentInput, Dict[str, Any]]]] = None,
     ) -> Dict[str, str]:
         attachment_payload = _normalize_attachments(attachments)
+        logger.info("Invoke timeout: %s", _format_timeout_for_log(self.timeout))
 
         task = self.client.tasks.create(
             prompt=prompt,
@@ -127,9 +135,17 @@ class HumanInTheLoop:
             if status in {"completed", "failed", "canceled", "cancelled", "expired"}:
                 return _format_hitl_result(current)
 
-            if (time.monotonic() - start) > self.timeout:
+            elapsed = time.monotonic() - start
+            if self.timeout is not None and elapsed > self.timeout:
+                logger.error(
+                    "Invoke timed out after %s (configured timeout: %s).",
+                    _format_elapsed_time(elapsed),
+                    _format_timeout_for_log(self.timeout),
+                )
                 raise TimeoutError(
-                    f"CodeVF task '{task.id}' did not complete within {self.timeout} seconds."
+                    f"Invoke timed out after {_format_elapsed_time(elapsed)} while waiting for "
+                    f"CodeVF task '{task.id}' (configured timeout: {_format_timeout_for_log(self.timeout)}). "
+                    "Increase the timeout with --timeout <seconds> or disable it with --timeout -1."
                 )
 
             time.sleep(self.poll_interval)
@@ -207,3 +223,57 @@ def _extract_output(task: TaskResponse) -> str:
         return "CodeVF task was cancelled."
 
     return "CodeVF task completed without a text response."
+
+
+def _resolve_timeout_seconds(timeout: Optional[float], max_credits: Optional[int]) -> Optional[float]:
+    if timeout is None:
+        return _compute_default_timeout_seconds(max_credits)
+
+    timeout_value = _coerce_float(timeout, field_name="timeout")
+    if timeout_value == INFINITE_TIMEOUT_SENTINEL:
+        return None
+    if timeout_value <= 0:
+        raise ValueError("timeout must be -1 for infinite wait or a positive number of seconds.")
+    return timeout_value
+
+
+def _compute_default_timeout_seconds(max_credits: Optional[int]) -> float:
+    if max_credits is None:
+        raise ValueError(
+            "max_credits configuration is required to compute the default invoke timeout."
+        )
+
+    if isinstance(max_credits, bool):
+        raise ValueError("max_credits must be an integer.")
+
+    try:
+        max_credits_value = int(max_credits)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("max_credits must be an integer.") from exc
+
+    return float(
+        (DEFAULT_TIMEOUT_PER_CREDIT_SECONDS * max_credits_value) + DEFAULT_TIMEOUT_BUFFER_SECONDS
+    )
+
+
+def _coerce_float(value: float, *, field_name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be numeric.")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be numeric.") from exc
+
+
+def _format_timeout_for_log(timeout: Optional[float]) -> str:
+    if timeout is None:
+        return "infinite"
+    if timeout.is_integer():
+        return f"{int(timeout)}s"
+    return f"{timeout:g}s"
+
+
+def _format_elapsed_time(elapsed: float) -> str:
+    if elapsed.is_integer():
+        return f"{int(elapsed)}s"
+    return f"{elapsed:.2f}s"
