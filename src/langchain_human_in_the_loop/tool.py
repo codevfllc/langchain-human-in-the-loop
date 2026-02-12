@@ -41,8 +41,13 @@ class HumanInTheLoopInput(BaseModel):
         default=None,
         description="Optional files/logs to attach. Each item needs fileName/file_name, mimeType/mime_type, and content or base64.",
     )
+    tag_id: Optional[int] = Field(
+        default=None,
+        alias="tagId",
+        description="Optional expertise tag ID from GET /tags (Engineer, Vibe Coder, General Purpose).",
+    )
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 @runtime_checkable
@@ -98,24 +103,28 @@ class HumanInTheLoop:
         prompt: str,
         *,
         attachments: Optional[List[Union[AttachmentInput, Dict[str, Any]]]] = None,
+        tag_id: Optional[int] = None,
     ) -> Dict[str, str]:
-        return self._run(prompt, attachments)
+        return self._run(prompt, attachments, tag_id)
 
     async def ainvoke(
         self,
         prompt: str,
         *,
         attachments: Optional[List[Union[AttachmentInput, Dict[str, Any]]]] = None,
+        tag_id: Optional[int] = None,
     ) -> Dict[str, str]:
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._run, prompt, attachments)
+        return await loop.run_in_executor(None, self._run, prompt, attachments, tag_id)
 
     def _run(
         self,
         prompt: str,
         attachments: Optional[List[Union[AttachmentInput, Dict[str, Any]]]] = None,
+        tag_id: Optional[int] = None,
     ) -> Dict[str, str]:
         attachment_payload = _normalize_attachments(attachments)
+        effective_tag_id = self.tag_id if tag_id is None else tag_id
         logger.info("Invoke timeout: %s", _format_timeout_for_log(self.timeout))
 
         task = self.client.tasks.create(
@@ -125,7 +134,7 @@ class HumanInTheLoop:
             mode=self.mode,
             metadata=self.metadata,
             attachments=attachment_payload,
-            tag_id=self.tag_id,
+            tag_id=effective_tag_id,
         )
 
         start = time.monotonic()
@@ -151,8 +160,12 @@ class HumanInTheLoop:
             time.sleep(self.poll_interval)
 
     def as_langchain_tool(self) -> StructuredTool:
-        def _run_tool(prompt: str, attachments: Optional[List[Dict[str, Any]]] = None) -> str:
-            result = self.invoke(prompt, attachments=attachments)
+        def _run_tool(
+            prompt: str,
+            attachments: Optional[List[Dict[str, Any]]] = None,
+            tag_id: Optional[int] = None,
+        ) -> str:
+            result = self.invoke(prompt, attachments=attachments, tag_id=tag_id)
             return result["output"]
 
         return StructuredTool.from_function(

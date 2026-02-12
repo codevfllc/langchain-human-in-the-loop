@@ -41,6 +41,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         mode=args.mode,
         poll_interval=args.poll_interval,
         timeout=args.timeout,
+        tag_id=args.tag_id,
         api_key=args.api_key,
         base_url=args.base_url,
     )
@@ -84,6 +85,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "Invoke timeout in seconds. Defaults to (2 * max_credit) + 300. "
             "Use -1 for infinite wait."
         ),
+    )
+    parser.add_argument(
+        "--tag-id",
+        type=int,
+        default=None,
+        help="Optional expertise tag ID from GET /tags.",
     )
     parser.add_argument(
         "--poll-interval",
