@@ -102,6 +102,44 @@ def test_hitl_maps_attachments() -> None:
     ]
 
 
+def test_hitl_forwards_tag_id() -> None:
+    client = DummyClient()
+    client.tasks.create.return_value = _task({
+        "id": "task_tagged",
+        "status": "completed",
+        "mode": "standard",
+        "maxCredits": 20,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "result": {"message": "Done", "deliverables": []},
+    })
+    client.tasks.retrieve.return_value = client.tasks.create.return_value
+
+    hitl = HumanInTheLoop(project_id=1, client=client, tag_id=2)
+    hitl.invoke("Use a vibe coder.")
+
+    _, kwargs = client.tasks.create.call_args
+    assert kwargs["tag_id"] == 2
+
+
+def test_hitl_invoke_tag_id_overrides_default() -> None:
+    client = DummyClient()
+    client.tasks.create.return_value = _task({
+        "id": "task_tag_override",
+        "status": "completed",
+        "mode": "standard",
+        "maxCredits": 20,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "result": {"message": "Done", "deliverables": []},
+    })
+    client.tasks.retrieve.return_value = client.tasks.create.return_value
+
+    hitl = HumanInTheLoop(project_id=1, client=client, tag_id=1)
+    hitl.invoke("Use override tag id.", tag_id=3)
+
+    _, kwargs = client.tasks.create.call_args
+    assert kwargs["tag_id"] == 3
+
+
 def test_hitl_timeout(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     client = DummyClient()
     client.tasks.create.return_value = _task({
@@ -176,7 +214,11 @@ async def test_hitl_async_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     client = DummyClient()
     hitl = HumanInTheLoop(project_id=1, client=client)
 
-    monkeypatch.setattr(hitl, "_run", lambda prompt, attachments=None: {"status": "approved", "output": "ok"})
+    monkeypatch.setattr(
+        hitl,
+        "_run",
+        lambda prompt, attachments=None, tag_id=None: {"status": "approved", "output": "ok"},
+    )
 
     result = await hitl.ainvoke("Test async.")
     assert result == {"status": "approved", "output": "ok"}

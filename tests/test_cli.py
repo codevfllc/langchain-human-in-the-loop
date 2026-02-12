@@ -12,6 +12,7 @@ def test_cli_timeout_override(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Ca
         def __init__(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
             captured["timeout"] = kwargs["timeout"]
             captured["max_credits"] = kwargs["max_credits"]
+            captured["tag_id"] = kwargs["tag_id"]
 
         def invoke(self, prompt: str) -> dict[str, str]:
             assert prompt == "Review this function."
@@ -34,6 +35,7 @@ def test_cli_timeout_override(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Ca
     assert exit_code == 0
     assert captured["timeout"] == 1200.0
     assert captured["max_credits"] == 40
+    assert captured["tag_id"] is None
     assert '"status": "approved"' in capsys.readouterr().out
 
 
@@ -43,6 +45,7 @@ def test_cli_timeout_minus_one(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeHumanInTheLoop:
         def __init__(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
             captured["timeout"] = kwargs["timeout"]
+            captured["tag_id"] = kwargs["tag_id"]
 
         def invoke(self, prompt: str) -> dict[str, str]:
             return {"status": "approved", "output": prompt}
@@ -63,6 +66,35 @@ def test_cli_timeout_minus_one(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert exit_code == 0
     assert captured["timeout"] == -1
+    assert captured["tag_id"] is None
+
+
+def test_cli_forwards_tag_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, float] = {}
+
+    class FakeHumanInTheLoop:
+        def __init__(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            captured["tag_id"] = kwargs["tag_id"]
+
+        def invoke(self, prompt: str) -> dict[str, str]:
+            return {"status": "approved", "output": prompt}
+
+    monkeypatch.setattr(cli, "HumanInTheLoop", FakeHumanInTheLoop)
+
+    exit_code = cli.main(
+        [
+            "--project-id",
+            "1",
+            "--max-credit",
+            "10",
+            "--tag-id",
+            "2",
+            "Use vibe coder.",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["tag_id"] == 2
 
 
 def test_cli_rejects_timeout_zero() -> None:

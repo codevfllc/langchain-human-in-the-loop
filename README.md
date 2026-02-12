@@ -28,6 +28,7 @@ hitl = HumanInTheLoop(
     project_id=123,
     max_credits=50,
     mode="fast",
+    tag_id=1,  # Optional: Engineer=1.7x, Vibe Coder=1.5x, General Purpose=1.0x
     timeout=300,
 )
 result = hitl.invoke(
@@ -61,6 +62,22 @@ pip install -e .
 ### Attachment Format
 
 Each attachment accepts either `content` (plain text) or `base64` (for binary files). The SDK enforces limits and supported file types.
+
+### Engineer Expertise (`tag_id`)
+
+Use an optional `tag_id` to select expertise pricing from `GET /tags`:
+
+- `Engineer` -> `1.7x`
+- `Vibe Coder` -> `1.5x`
+- `General Purpose` -> `1.0x` (default if omitted)
+
+Invalid `tag_id` values return `400` from the API.
+
+You can set `tag_id` at `HumanInTheLoop(...)` construction time or per call:
+
+```python
+result = hitl.invoke("Review this.", tag_id=2)
+```
 
 ### Example: Multiple Files
 
